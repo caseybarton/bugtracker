@@ -1,6 +1,7 @@
 CREATE TABLE User_Account (
 	user_id bigserial PRIMARY KEY NOT NULL,
-	password_crypt VARCHAR(255) NOT NULL,
+	password_hash VARCHAR(255) NOT NULL,
+	username TEXT,
 	first_name TEXT,
 	last_name TEXT,
 	email VARCHAR(255)
@@ -37,17 +38,11 @@ CREATE TABLE User_Assigned_Bug (
 CREATE TABLE Bug_Change (
 	bug_change_id bigserial PRIMARY KEY NOT NULL,
 	creation_time TIMESTAMP,
-	type VARCHAR(255),
-	bug_id bigint NOT NULL
+	description TEXT,
+	bug_id bigint NOT NULL,
+  contained_bug_id bigint NOT NULL
 );
 
-CREATE TABLE News_Feed_Entry (
-	news_feed_entry_id bigserial PRIMARY KEY NOT NULL,
-	title TEXT,
-	creation_time TIMESTAMP,
-	content TEXT,
-	bug_change_id bigint NOT NULL
-);
 
 CREATE TABLE Bug_Comment (
 	bug_comment_id bigserial PRIMARY KEY NOT NULL,
@@ -74,7 +69,6 @@ CREATE TABLE Bug_Has_Tag (
 	tag_title VARCHAR(255) NOT NULL
 );
 
-ALTER TABLE News_Feed_Entry ADD FOREIGN KEY(bug_change_id) REFERENCES Bug_Change;
 ALTER TABLE Bug_Submission ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Submission ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Subscription ADD FOREIGN KEY(bug_id) REFERENCES Bug;
@@ -82,6 +76,7 @@ ALTER TABLE Subscription ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Change ADD FOREIGN KEY(bug_id) REFERENCES Bug;
+ALTER TABLE Bug_Change ADD FOREIGN KEY(contained_bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Has_Tag ADD FOREIGN KEY(bug_id) REFERENCES Bug;
