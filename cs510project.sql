@@ -38,9 +38,13 @@ CREATE TABLE User_Assigned_Bug (
 CREATE TABLE Bug_Change (
 	bug_change_id bigserial PRIMARY KEY NOT NULL,
 	creation_time TIMESTAMP,
-	description TEXT,
+	description VARCHAR(255),
 	bug_id bigint NOT NULL,
-  contained_bug_id bigint NOT NULL
+	bug_details TEXT,
+	bug_close_time TIMESTAMP,
+	bug_status VARCHAR(255),
+	bug_title TEXT,
+	bug_summary TEXT
 );
 
 
@@ -76,7 +80,6 @@ ALTER TABLE Subscription ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Change ADD FOREIGN KEY(bug_id) REFERENCES Bug;
-ALTER TABLE Bug_Change ADD FOREIGN KEY(contained_bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Has_Tag ADD FOREIGN KEY(bug_id) REFERENCES Bug;
