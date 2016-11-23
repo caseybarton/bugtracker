@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bug Tracker</title>
+</head>
+<body>
+<h1>Bug Tracker</h1>
+<h3>Logged in as {{ user.getUsername }}. </h3>
+<p>Name: {{ user.getFirstName }} {{ user.getLastName }}</p>
+<p>Email: {{ user.getEmail }}</p>
+<p><a href="/logout">[Logout]</a> <a href="/editUser/">[Edit Account Info]</a></p>
+</body>
+</html>

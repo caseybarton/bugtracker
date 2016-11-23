@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bug Tracker</title>
+</head>
+<body>
+<h2>Edit Account</h2>
+<form action="/editUser" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="user_id" value="{{ user.getId }}">
+    <label>First Name: <input name="first_name" type="text" width="50" value="{{ user.getFirstName }}"></label><br>
+    <label>Last Name: <input name="last_name" type="text" width="50" value="{{ user.getLastName }}"></label><br>
+    <label>Email Address: <input name="email" type="text" width="50" value="{{ user.getEmail }}"></label><br>
+
+    <h2>Change Password</h2>
+    <label>Current Password: <input name="current_password" type="password" width="50"></label><br>
+    <label>New Password: <input name="new_password" type="password" width="50"></label><br>
+    <button type="submit">Submit Changes</button>
+</form>
+</body>
+</html>

@@ -27,26 +27,35 @@ public class BugTrackerServer {
         http = svc;
         engine = new PebbleTemplateEngine();
 
-        http.get("/", this::rootPage, engine); //login page; user homepage after logged in with assigned bugs, most recent subbed-bug changes, and links to edit account info and submit new bug
+        http.get("/", this::rootPage, engine); //user homepage with assigned bugs, most recent subbed-bug changes, and links to edit account info and submit new bug
         http.get("/logout", this::logout);
         http.post("/login", this::login);
         http.post("/createUser", this::createUser);
         http.post("/editUser", this::editUser);
-        http.get("/bug/:bugid", this::redirectToFolder);
-        http.get("/bug/:bugid/", this::bugPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
-        http.get("/bug", this::redirectToFolder);
-        http.get("/bug/", this::bugsPage, engine); //list all bugs
-        http.get("/bug/:bugid/changelog", this::redirectToFolder);
-        http.get("/bug/:bugid/changelog/", this::changelog, engine); //list entire changelog
+//        http.get("/bug/:bugid", this::redirectToFolder);
+//        http.get("/bug/:bugid/", this::bugPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
+//        http.get("/bug", this::redirectToFolder);
+//        http.get("/bug/", this::bugsPage, engine); //list all bugs
+//        http.get("/bug/:bugid/changelog", this::redirectToFolder);
+//        http.get("/bug/:bugid/changelog/", this::changelog, engine); //list entire changelog
         http.get("/login", this::redirectToFolder);
         http.get("/login/", this::loginPage, engine);
         http.get("/createUser", this::redirectToFolder);
         http.get("/createUser/", this::createUserPage, engine);
-        http.get("/editUser/:userid", this::redirectToFolder);
-        http.get("/editUser/:userid/", this::editUserPage, engine);
-        http.get("/submitBug", this::redirectToFolder);
-        http.get("/submitBug/", this::submitBugPage, engine);
+        http.get("/editUser", this::redirectToFolder);
+        http.get("/editUser/", this::editUserPage, engine);
+//        http.get("/submitBug", this::redirectToFolder);
+//        http.get("/submitBug/", this::submitBugPage, engine);
     }
+
+/*  TODO Implement the above methods with the following code at the beginning of each one
+
+    //Redirect if not logged in
+    User user;
+    Long userId = request.session().attribute("userId");
+    try (Connection cxn = pool.getConnection()) { user = User.getUser(cxn, userId); }
+    if(user == null){ response.redirect("/login/", 303); }
+*/
 
     public String redirectToFolder(Request request, Response response) {
         String path = request.pathInfo();
@@ -65,7 +74,7 @@ public class BugTrackerServer {
             if(user != null) {
                 fields.put("user", user);
                 fields.put("bugs", Bug.retrieveAssigned(cxn, userId));
-                fields.put("bugChanges", BugChange.retrieveRecent(cxn, userId));
+                fields.put("bugChanges", BugChange.retrieveRecentChangesOfUserSubscriptions(cxn, userId));
             }
         }
 
@@ -143,11 +152,29 @@ public class BugTrackerServer {
         if (!password.equals(request.queryParams("confirm"))) {
             http.halt(400, "Password and confirmation do not match.");
         }
-
         String pwHash = BCrypt.hashpw(password, BCrypt.gensalt(10));
+        String first_name = request.queryParams("first_name");
+        String last_name = request.queryParams("last_name");
+        String email = request.queryParams("email");
 
-        String addUser = "INSERT INTO bm_user (username, password_hash) " +
-                "VALUES (?, ?) " +
+        //verify username not taken
+        String checkUsername = "SELECT user_id FROM user_account WHERE username = ?";
+        try (Connection cxn = pool.getConnection();
+             PreparedStatement stmt = cxn.prepareStatement(checkUsername)) {
+            stmt.setString(1, name);
+            stmt.execute();
+            try (ResultSet rs = stmt.getResultSet()) {
+                if(rs.next()) {
+                    long returnedUserId = rs.getLong(1);
+                    logger.info("username {} already exists with id {}", name, returnedUserId);
+                    http.halt(400, "Username taken");
+                }
+            }
+        }
+
+
+        String addUser = "INSERT INTO user_account (username, password_hash, first_name, last_name, email) " +
+                "VALUES (?, ?, ?, ?, ?) " +
                 "RETURNING user_id"; // PostgreSQL extension
 
         long userId;
@@ -156,6 +183,9 @@ public class BugTrackerServer {
              PreparedStatement stmt = cxn.prepareStatement(addUser)) {
             stmt.setString(1, name);
             stmt.setString(2, pwHash);
+            stmt.setString(3, first_name);
+            stmt.setString(4, last_name);
+            stmt.setString(5, email);
             stmt.execute();
             try (ResultSet rs = stmt.getResultSet()) {
                 rs.next();
@@ -171,8 +201,117 @@ public class BugTrackerServer {
         return "See you later!";
     }
 
+    String editUser(Request request, Response response) throws SQLException {
+//        long userId = new Long(request.queryParams("user_id")).longValue();
+        //validate token
+        String token = request.session().attribute("csrf_token");
+        String submittedToken = request.queryParams("csrf_token");
+        if (token == null || !token.equals(submittedToken)) {
+            http.halt(400, "invalid CSRF token");
+        }
+
+        //get field info
+        String userId = request.queryParams("user_id");
+        String first_name = request.queryParams("first_name");
+        String last_name = request.queryParams("last_name");
+        String email = request.queryParams("email");
+
+
+        //if password fields aren't empty and are valid, update password, else leave password alone
+        String newPassword = request.queryParams("new_password");
+        if (newPassword != null && !newPassword.isEmpty()) {
+            String currentPassword = request.queryParams("current_password");
+            if (currentPassword == null || currentPassword.isEmpty()) {
+                http.halt(400, "current password must be provided in order to change password");
+            }
+
+            String userQuery = "SELECT password_hash FROM user_account WHERE user_id = ?";
+
+            try (Connection cxn = pool.getConnection();
+                 PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
+                stmt.setLong(1, new Long(userId).longValue());
+                logger.debug("looking up user {}", userId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        logger.debug("found user {}", userId);
+                        String hash = rs.getString("password_hash");
+                        if (BCrypt.checkpw(currentPassword, hash)) {
+                            logger.debug("user {} has valid password", userId);
+                            String pwHash = BCrypt.hashpw(newPassword, BCrypt.gensalt(10));
+                            PreparedStatement stmt2 = cxn.prepareStatement("UPDATE user_account SET password_hash = ? WHERE user_id = ? RETURNING user_id");
+                            stmt2.setString(1, pwHash);
+                            stmt2.setLong(2, new Long(userId).longValue());
+                            try (ResultSet rs2 = stmt2.executeQuery()) {
+                                if (rs2.next()) {
+                                    logger.debug("successfully updated user {} password", userId);
+                                } else {
+                                    logger.debug("failed to update password for user {}", userId);
+                                }
+                            }
+                        } else {
+                            logger.debug("invalid password for user {}", userId);
+                            http.halt(400, "invalid password");
+                        }
+                    } else {
+                        logger.debug("no user {} found", userId);
+                    }
+                }
+            }
+        }
+
+
+        //edit user info
+        String addUser = "UPDATE user_account SET (first_name, last_name, email) = (?, ?, ?) \n" +
+                "WHERE user_id = ? \n" +
+                "RETURNING user_id"; // PostgreSQL extension
+
+        try (Connection cxn = pool.getConnection();
+             PreparedStatement stmt = cxn.prepareStatement(addUser)) {
+            stmt.setString(1, first_name);
+            stmt.setString(2, last_name);
+            stmt.setString(3, email);
+            stmt.setLong(4, new Long(userId).longValue());
+            stmt.execute();
+            try (ResultSet rs = stmt.getResultSet()) {
+                if(rs.next()) {
+                    logger.info("updated user {} with id {}", userId);
+                }else{
+                    logger.info("failed to update user {}", userId);
+                }
+            }
+        }
+
+        response.redirect("/", 303);
+        return "User account updated!";
+    }
+
     ModelAndView loginPage(Request request, Response response) throws SQLException {
         Map<String,Object> fields = new HashMap<>();
         return new ModelAndView(fields, "login.html.twig");
+    }
+
+    ModelAndView createUserPage(Request request, Response response) throws SQLException {
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        return new ModelAndView(fields, "createUser.html.twig");
+    }
+
+    ModelAndView editUserPage(Request request, Response response) throws SQLException {
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        User user;
+        Long userId = request.session().attribute("userId");
+        try (Connection cxn = pool.getConnection()) {
+            user = User.getUser(cxn, userId);
+            if(user != null) {
+                fields.put("user", user);
+            }
+        }
+        if(user == null){
+            response.redirect("/login/", 303);
+        }
+
+        String token = request.session().attribute("csrf_token");
+        fields.put("csrf_token", token);
+
+        return new ModelAndView(fields, "editUser.html.twig");
     }
 }

@@ -30,7 +30,7 @@ public class BugChange {
         this.bug_close_time = bug_close_time;
     }
 
-    static public List<BugChange> getRecentChangesOfUserSubscriptions(Connection cxn, Long userId) throws SQLException {
+    static public List<BugChange> retrieveRecentChangesOfUserSubscriptions(Connection cxn, Long userId) throws SQLException {
         List<BugChange> bugChanges = new ArrayList<>();
 
         if (userId == null) {return null;}
@@ -42,7 +42,7 @@ public class BugChange {
                 "ORDER BY bug_change.creation_time DESC\n" +
                 "LIMIT 10;";
 
-        PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
+        try(PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
             stmt.setLong(1, userId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {

@@ -31,8 +31,7 @@ public class User {
             return null;
         }
         String userQuery = "SELECT * FROM user_account WHERE user_id = ?";
-
-        PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
+        try(PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
             stmt.setLong(1, userId);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {

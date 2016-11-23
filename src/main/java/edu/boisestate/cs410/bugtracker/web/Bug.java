@@ -39,7 +39,7 @@ public class Bug {
                 "WHERE user_id = ?\n" +
                 "ORDER BY creation_time DESC;";
 
-        PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
+        try(PreparedStatement stmt = cxn.prepareStatement(userQuery)) {
             stmt.setLong(1, userId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -53,12 +53,12 @@ public class Bug {
     public long getId() {
         return id;
     }
-    public String getTitle() {return title};
-    public String getSummary() {return summary};
-    public String getDetails() {return details};
-    public String getStatus() {return status};
-    public Timestamp getCloseTime() {return close_time};
-    public String getCloseTimeString() {return close_time.toString().substring(0,19)};
-    public Timestamp getCreationTime() {return creation_time};
-    public String getCreationTimeString() {return creation_time.toString().substring(0,19)};
+    public String getTitle() {return title;}
+    public String getSummary() {return summary;}
+    public String getDetails() {return details;}
+    public String getStatus() {return status;}
+    public Timestamp getCloseTime() {return close_time;}
+    public String getCloseTimeString() {return close_time.toString().substring(0,19);}
+    public Timestamp getCreationTime() {return creation_time;}
+    public String getCreationTimeString() {return creation_time.toString().substring(0,19);}
 }
