@@ -32,6 +32,7 @@ public class BugTrackerServer {
         http.post("/login", this::login);
         http.post("/createUser", this::createUser);
         http.post("/editUser", this::editUser);
+        http.post("/submitBug", this::submitBug);
 //        http.get("/bug/:bugid", this::redirectToFolder);
 //        http.get("/bug/:bugid/", this::bugPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
 //        http.get("/bug", this::redirectToFolder);
@@ -44,8 +45,8 @@ public class BugTrackerServer {
         http.get("/createUser/", this::createUserPage, engine);
         http.get("/editUser", this::redirectToFolder);
         http.get("/editUser/", this::editUserPage, engine);
-//        http.get("/submitBug", this::redirectToFolder);
-//        http.get("/submitBug/", this::submitBugPage, engine);
+        http.get("/submitBug", this::redirectToFolder);
+        http.get("/submitBug/", this::submitBugPage, engine);
     }
 
 /*  TODO Implement the above methods with the following code at the beginning of each one
@@ -285,6 +286,42 @@ public class BugTrackerServer {
         return "User account updated!";
     }
 
+    String submitBug(Request request, Response response) throws SQLException {
+        String token = request.session().attribute("csrf_token");
+        String submittedToken = request.queryParams("csrf_token");
+        if (token == null || !token.equals(submittedToken)) {
+            http.halt(400, "invalid CSRF token");
+        }
+
+        //get field info
+        String title = request.queryParams("title");
+        String details = request.queryParams("details");
+        String summary = request.queryParams("summary");
+
+        //edit user info
+        String addBug = "INSERT INTO Bug (title, details, status, creation_time, summary) " +
+                "VALUES (?, ?, ?, ?, ?) " +
+                "RETURNING bug_id"; // PostgreSQL extension
+
+        try (Connection cxn = pool.getConnection();
+            PreparedStatement stmt = cxn.prepareStatement(addBug)) {
+            stmt.setString(1, title);
+            stmt.setString(2, details);
+            stmt.setString(3, "new"); // All bugs start with status "new"
+            stmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+            stmt.setString(5, summary);
+            stmt.execute();
+
+            ResultSet rs = stmt.getResultSet();
+            rs.next();
+            long bugId = rs.getLong(1);
+            logger.info("added bug with title {}, id {}", title, bugId);
+        }
+
+        response.redirect("/", 303);
+        return "Bug submitted!";
+    }
+
     ModelAndView loginPage(Request request, Response response) throws SQLException {
         Map<String,Object> fields = new HashMap<>();
         return new ModelAndView(fields, "login.html.twig");
@@ -313,5 +350,26 @@ public class BugTrackerServer {
         fields.put("csrf_token", token);
 
         return new ModelAndView(fields, "editUser.html.twig");
+    }
+
+    ModelAndView submitBugPage(Request request, Response response) throws SQLException {
+        Map<String, java.lang.Object> fields = new HashMap<>();
+
+        User user;
+        Long userId = request.session().attribute("userId");
+        try (Connection cxn = pool.getConnection()) {
+            user = User.getUser(cxn, userId);
+            if(user != null) {
+                fields.put("user", user);
+            }
+        }
+        if(user == null){
+            response.redirect("/login/", 303);
+        }
+
+        String token = request.session().attribute("csrf_token");
+        fields.put("csrf_token", token);
+
+        return new ModelAndView(fields, "submitBug.html.twig");
     }
 }
