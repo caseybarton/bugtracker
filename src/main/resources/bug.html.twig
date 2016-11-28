@@ -17,12 +17,15 @@
 </head>
 <body>
 <h1>Bugs</h1>
+
+<h3><a href="/submitBug/">Submit Bug</a></h3>
+
 <table>
     <tbody>
     {% for bug in bugs %}
     <tr>
         <td>
-        <p><a href="/bug/{{ bug.id}}">Bug #{{ bug.id }} - {{ bug.title }}</a></p>
+        <p><a href="/bug/{{ bug.id}}/">Bug #{{ bug.id }} - {{ bug.title }}</a></p>
         <p>
             {% if bug.status == "open" %}
             Created: {{ bug.creation_time }} <br />
