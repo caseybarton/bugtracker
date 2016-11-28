@@ -16,9 +16,8 @@
     <div>Assgined to:</div>
     <div>
     <ul>
-        <!-- currently using email as the user identifier. might want to add a display name attribute down the line -->
     {% for assignee in assignedUsers %}
-        <li>{{ assignee.email }}</li>
+        <li>{{ assignee.user }}</li>
     {% endfor %}
     </ul>
     </div>
@@ -37,6 +36,13 @@
 </p>
 <h5><em>Description:</em></h5>
 <p>{{ change_description }}</p>
+
+<h5><em>Tags:</em></h5>
+<p>
+{% for tag in tags %}
+   {{tag.title }}
+{$ endfor %}
+</p>
 {% endif %}
 
 <h3><strong>Comments:</strong></h3>

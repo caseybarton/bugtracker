@@ -424,7 +424,7 @@ public class BugTrackerServer {
     ModelAndView bugIDPage(Request request, Response response) throws SQLException {
         checkSession(request, response);
         Map<String, java.lang.Object> fields = new HashMap<>();
-        Integer bugID = Integer.parseInt(request.params("bugID"));
+        Long bugID = Long.parseLong(request.params("bugID"));
         fields.put("bugID", bugID);
 
         //display bug info, tags, recent changes, comments, and field to add a comment
@@ -432,11 +432,11 @@ public class BugTrackerServer {
             //Get bug info
             String bugQuery = "SELECT * FROM bug WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
-                stmt.setInt(1, bugID);
+                stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         fields.put("id", rs.getLong("bug_id"));
-                        fields.put("details", rs.getLong("details"));
+                        fields.put("details", rs.getString("details"));
                         fields.put("title", rs.getString("title"));
                         fields.put("creation_time", rs.getTimestamp("creation_time"));
                         fields.put("close_time", rs.getTimestamp("close_time"));
@@ -457,7 +457,7 @@ public class BugTrackerServer {
                     "JOIN bug USING (bug_id)\n" +
                     "WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(tagsQuery)) {
-                stmt.setInt(1, bugID);
+                stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         List<Map<String, Object>> tags = new ArrayList<>();
@@ -479,23 +479,23 @@ public class BugTrackerServer {
             }
 
             //Get users assigned to this bug
-            String assigneeQuery = "SELECT user_id, email\n" +
+            String assigneeQuery = "SELECT user_id, username\n" +
                     "FROM bug\n" +
                     "JOIN user_assigned_bug USING (bug_id)\n" +
                     "JOIN user_account USING (user_id)\n" +
                     "WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(assigneeQuery)) {
-                stmt.setInt(1, bugID);
+                stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         List<Map<String, Object>> assignees = new ArrayList<>();
 
                         Map<String, Object> assignee = new HashMap<>();
-                        assignee.put("assignedUser", rs.getLong("email"));
+                        assignee.put("user", rs.getString("username"));
                         assignees.add(assignee);
                         while(rs.next()) {
                             assignee = new HashMap<>();
-                            assignee.put("assignedUser", rs.getLong("email"));
+                            assignee.put("user", rs.getString("username"));
                             assignees.add(assignee);
                         }
                         fields.put("assignedUsers", assignees);
@@ -515,7 +515,7 @@ public class BugTrackerServer {
                     "ORDER BY bug_change.creation_time DESC\n" +
                     "LIMIT 1;";
             try (PreparedStatement stmt = cxn.prepareStatement(changeQuery)) {
-                stmt.setInt(1, bugID);
+                stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         fields.put("change_id", rs.getLong("bug_change_id"));
@@ -537,7 +537,7 @@ public class BugTrackerServer {
                     "WHERE bug_id = ?\n" +
                     "ORDER BY bug_comment.creation_time DESC;";
             try (PreparedStatement stmt = cxn.prepareStatement(commentsQuery)) {
-                stmt.setInt(1, bugID);
+                stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         List<Map<String, Object>> comments = new ArrayList<>();
