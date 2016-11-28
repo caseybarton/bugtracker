@@ -306,10 +306,12 @@ public class BugTrackerServer {
         String details = request.queryParams("details");
         String summary = request.queryParams("summary");
 
-        //edit user info
         String addBug = "INSERT INTO Bug (title, details, status, creation_time, summary) " +
                 "VALUES (?, ?, ?, ?, ?) " +
                 "RETURNING bug_id"; // PostgreSQL extension
+
+        String addBugSubmission = "INSERT INTO Bug_Submission (bug_id, user_id) " +
+                "VALUES (?, ?)";
 
         try (Connection cxn = pool.getConnection();
             PreparedStatement stmt = cxn.prepareStatement(addBug)) {
@@ -323,6 +325,12 @@ public class BugTrackerServer {
             ResultSet rs = stmt.getResultSet();
             rs.next();
             long bugId = rs.getLong(1);
+
+            PreparedStatement stmt2 = cxn.prepareStatement(addBugSubmission);
+            stmt2.setLong(1, bugId);
+            stmt2.setLong(2, request.session().attribute("userId"));
+            stmt2.execute();
+
             logger.info("added bug with title {}, id {}", title, bugId);
         }
 
