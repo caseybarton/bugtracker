@@ -35,8 +35,8 @@ public class BugTrackerServer {
         http.post("/submitBug", this::submitBug);
 //        http.get("/bug/:bugid", this::redirectToFolder);
 //        http.get("/bug/:bugid/", this::bugPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
-//        http.get("/bug", this::redirectToFolder);
-//        http.get("/bug/", this::bugsPage, engine); //list all bugs
+        http.get("/bug", this::redirectToFolder);
+        http.get("/bug/", this::bugsPage, engine); //list all bugs
 //        http.get("/bug/:bugid/changelog", this::redirectToFolder);
 //        http.get("/bug/:bugid/changelog/", this::changelog, engine); //list entire changelog
         http.get("/login", this::redirectToFolder);
@@ -49,14 +49,20 @@ public class BugTrackerServer {
         http.get("/submitBug/", this::submitBugPage, engine);
     }
 
-/*  TODO Implement the above methods with the following code at the beginning of each one
+/*  TODO Implement the above methods with the following code at the beginning of each one */
 
     //Redirect if not logged in
-    User user;
-    Long userId = request.session().attribute("userId");
-    try (Connection cxn = pool.getConnection()) { user = User.getUser(cxn, userId); }
-    if(user == null){ response.redirect("/login/", 303); }
-*/
+    void checkSession(Request request, Response response) throws SQLException {
+        User user;
+        Long userId = request.session().attribute("userId");
+        try (Connection cxn = pool.getConnection()) {
+            user = User.getUser(cxn, userId);
+        }
+        if (user == null) {
+            response.redirect("/login/", 303);
+        }
+    }
+
 
     public String redirectToFolder(Request request, Response response) {
         String path = request.pathInfo();
@@ -371,5 +377,44 @@ public class BugTrackerServer {
         fields.put("csrf_token", token);
 
         return new ModelAndView(fields, "submitBug.html.twig");
+    }
+
+    ModelAndView bugsPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+
+        //List all bugs, most recent first
+        String bugQuery = "SELECT bug_id, title, creation_time, summary, status \n" +
+                "FROM bug\n" +
+                "ORDER BY creation_time DESC;";
+        try (Connection cxn = pool.getConnection();
+             PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    List<Map<String, Object>> bugs = new ArrayList<>();
+
+                    //Record first row. We jumped ahead one row by checking if the query had no results
+                    Map<String, Object> bug = new HashMap<>();
+                    bug.put("id", rs.getLong("bug_id"));
+                    bug.put("title", rs.getString("title"));
+                    bug.put("creation_time", rs.getTimestamp("creation_time"));
+                    bug.put("summary", rs.getString("summary"));
+                    bug.put("status", rs.getString("status"));
+                    bugs.add(bug);
+
+                    while (rs.next()) {
+                        bug = new HashMap<>();
+                        bug.put("id", rs.getLong("bug_id"));
+                        bug.put("title", rs.getString("title"));
+                        bug.put("creation_time", rs.getTimestamp("creation_time"));
+                        bug.put("summary", rs.getString("summary"));
+                        bug.put("status", rs.getString("status"));
+                        bugs.add(bug);
+                    }
+                    fields.put("bugs", bugs );
+                }
+            }
+        }
+        return new ModelAndView(fields, "bug.html.twig");
     }
 }

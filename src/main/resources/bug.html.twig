@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bug Tracker</title>
+    <style>
+        td {
+            border-bottom: 1px solid #ddd;
+        }
+        .open {
+            color: green;
+        }
+        .closed {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<h1>Most Recent Bugs</h1>
+<table>
+    <tbody>
+    {% for bug in bugs %}
+    <tr>
+        <td>
+        <p><a href="/bug/{{ bug.id}}">Bug #{{ bug.id }} - {{ bug.title }}</a></p>
+        <p>
+            {% if bug.status == "open" %}
+            Created: {{ bug.creation_time }} <br />
+            Status: <span class="open">{{ bug.status}}</span>
+            {% else %}
+            Created: {{ bug.creation_time }} <br />
+            Status: <span class="closed">{{ bug.status}}</span>
+            {% endif %}
+        </p>
+        <p>{{ bug.summary }}</p>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+    </table>
+</body>
+</html>
