@@ -33,8 +33,10 @@ public class BugTrackerServer {
         http.post("/createUser", this::createUser);
         http.post("/editUser", this::editUser);
         http.post("/submitBug", this::submitBug);
-//        http.get("/bug/:bugid", this::redirectToFolder);
-//        http.get("/bug/:bugid/", this::bugPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
+//        http.get("/bug/:bugID/comment", this::redirectToFolder);
+//        http.get("/bug/:bugID/comment", this::addComment, engine); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
+        http.get("/bug/:bugID", this::redirectToFolder);
+        http.get("/bug/:bugID/", this::bugIDPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
         http.get("/bug", this::redirectToFolder);
         http.get("/bug/", this::bugsPage, engine); //list all bugs
 //        http.get("/bug/:bugid/changelog", this::redirectToFolder);
@@ -294,7 +296,7 @@ public class BugTrackerServer {
 
     String submitBug(Request request, Response response) throws SQLException {
         String token = request.session().attribute("csrf_token");
-        String submittedToken = request.queryParams("csrf_token");
+        String submittedToken = request.params("csrf_token");
         if (token == null || !token.equals(submittedToken)) {
             http.halt(400, "invalid CSRF token");
         }
@@ -384,37 +386,185 @@ public class BugTrackerServer {
         Map<String, java.lang.Object> fields = new HashMap<>();
 
         //List all bugs, most recent first
-        String bugQuery = "SELECT bug_id, title, creation_time, summary, status \n" +
+        String bugsQuery = "SELECT bug_id, title, creation_time, summary, status \n" +
                 "FROM bug\n" +
                 "ORDER BY creation_time DESC;";
-        try (Connection cxn = pool.getConnection();
-             PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    List<Map<String, Object>> bugs = new ArrayList<>();
+        try (Connection cxn = pool.getConnection()) {
+             try (PreparedStatement stmt = cxn.prepareStatement(bugsQuery)) {
+                 try (ResultSet rs = stmt.executeQuery()) {
+                     if (rs.next()) {
+                         List<Map<String, Object>> bugs = new ArrayList<>();
 
-                    //Record first row. We jumped ahead one row by checking if the query had no results
-                    Map<String, Object> bug = new HashMap<>();
-                    bug.put("id", rs.getLong("bug_id"));
-                    bug.put("title", rs.getString("title"));
-                    bug.put("creation_time", rs.getTimestamp("creation_time"));
-                    bug.put("summary", rs.getString("summary"));
-                    bug.put("status", rs.getString("status"));
-                    bugs.add(bug);
+                         //Record first row. We jumped ahead one row by checking if the query had no results
+                         Map<String, Object> bug = new HashMap<>();
+                         bug.put("id", rs.getLong("bug_id"));
+                         bug.put("title", rs.getString("title"));
+                         bug.put("creation_time", rs.getTimestamp("creation_time"));
+                         bug.put("summary", rs.getString("summary"));
+                         bug.put("status", rs.getString("status"));
+                         bugs.add(bug);
 
-                    while (rs.next()) {
-                        bug = new HashMap<>();
-                        bug.put("id", rs.getLong("bug_id"));
-                        bug.put("title", rs.getString("title"));
-                        bug.put("creation_time", rs.getTimestamp("creation_time"));
-                        bug.put("summary", rs.getString("summary"));
-                        bug.put("status", rs.getString("status"));
-                        bugs.add(bug);
-                    }
-                    fields.put("bugs", bugs );
-                }
-            }
+                         while (rs.next()) {
+                             bug = new HashMap<>();
+                             bug.put("id", rs.getLong("bug_id"));
+                             bug.put("title", rs.getString("title"));
+                             bug.put("creation_time", rs.getTimestamp("creation_time"));
+                             bug.put("summary", rs.getString("summary"));
+                             bug.put("status", rs.getString("status"));
+                             bugs.add(bug);
+                         }
+                         fields.put("bugs", bugs);
+                     }
+                 }
+             }
         }
         return new ModelAndView(fields, "bug.html.twig");
     }
+
+    ModelAndView bugIDPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        Integer bugID = Integer.parseInt(request.params("bugID"));
+        fields.put("bugID", bugID);
+
+        //display bug info, tags, recent changes, comments, and field to add a comment
+        try (Connection cxn = pool.getConnection()) {
+            //Get bug info
+            String bugQuery = "SELECT * FROM bug WHERE bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
+                stmt.setInt(1, bugID);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        fields.put("id", rs.getLong("bug_id"));
+                        fields.put("details", rs.getLong("details"));
+                        fields.put("title", rs.getString("title"));
+                        fields.put("creation_time", rs.getTimestamp("creation_time"));
+                        fields.put("close_time", rs.getTimestamp("close_time"));
+                        fields.put("summary", rs.getString("summary"));
+                        fields.put("status", rs.getString("status"));
+                    }
+                    else {
+                        logger.debug("failed to get bug {}. does not exist", bugID);
+                        http.halt(400, "Bug #"+bugID+" does not exist");
+                    }
+                }
+            }
+
+            //Get tags for bug
+            String tagsQuery = "SELECT tag_title, description\n" +
+                    "FROM tag \n" +
+                    "JOIN bug_has_tag USING (tag_title)\n" +
+                    "JOIN bug USING (bug_id)\n" +
+                    "WHERE bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(tagsQuery)) {
+                stmt.setInt(1, bugID);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        List<Map<String, Object>> tags = new ArrayList<>();
+
+                        Map<String, Object> tag = new HashMap<>();
+                        tag.put("title", rs.getString("tag_title"));
+                        tags.add(tag);
+                        while(rs.next()) {
+                            tag = new HashMap<>();
+                            tag.put("title", rs.getString("tag_title"));
+                            tags.add(tag);
+                        }
+                        fields.put("tags", tags);
+                    }
+                    else {
+                        logger.debug("no tags were found for bug #{}", bugID);
+                    }
+                }
+            }
+
+            //Get users assigned to this bug
+            String assigneeQuery = "SELECT user_id, email\n" +
+                    "FROM bug\n" +
+                    "JOIN user_assigned_bug USING (bug_id)\n" +
+                    "JOIN user_account USING (user_id)\n" +
+                    "WHERE bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(assigneeQuery)) {
+                stmt.setInt(1, bugID);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        List<Map<String, Object>> assignees = new ArrayList<>();
+
+                        Map<String, Object> assignee = new HashMap<>();
+                        assignee.put("assignedUser", rs.getLong("email"));
+                        assignees.add(assignee);
+                        while(rs.next()) {
+                            assignee = new HashMap<>();
+                            assignee.put("assignedUser", rs.getLong("email"));
+                            assignees.add(assignee);
+                        }
+                        fields.put("assignedUsers", assignees);
+                    }
+                    else {
+                        logger.debug("failed to get bug {}. does not exist", bugID);
+                        http.halt(400, "Bug #"+bugID+" does not exist");
+                    }
+                }
+            }
+
+            //Get most recent bug change
+            String changeQuery = "SELECT bug_change_id, bug_change.creation_time, description\n" +
+                    "FROM bug_change\n" +
+                    "JOIN bug USING (bug_id)\n" +
+                    "WHERE bug_id = ?\n" +
+                    "ORDER BY bug_change.creation_time DESC\n" +
+                    "LIMIT 1;";
+            try (PreparedStatement stmt = cxn.prepareStatement(changeQuery)) {
+                stmt.setInt(1, bugID);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        fields.put("change_id", rs.getLong("bug_change_id"));
+                        fields.put("change_description", rs.getLong("description"));
+                        fields.put("change_creation_time", rs.getTimestamp("bug_change.creation_time"));
+                    }
+                    else {
+                        fields.put("no_changes", true);
+                        logger.debug("no recent changes for bug #{}", bugID);
+                    }
+                }
+            }
+
+            //Get all comments for this bug
+            String commentsQuery = "SELECT content, bug_comment.creation_time, email AS author\n" +
+                    "FROM bug\n" +
+                    "JOIN bug_comment USING (bug_id)\n" +
+                    "JOIN user_account USING (user_id)\n" +
+                    "WHERE bug_id = ?\n" +
+                    "ORDER BY bug_comment.creation_time DESC;";
+            try (PreparedStatement stmt = cxn.prepareStatement(commentsQuery)) {
+                stmt.setInt(1, bugID);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        List<Map<String, Object>> comments = new ArrayList<>();
+
+                        Map<String, Object> comment = new HashMap<>();
+                        comment.put("creation_time", rs.getLong("bug_comment.creation_time"));
+                        comment.put("author", rs.getLong("author"));
+                        comment.put("content", rs.getLong("content"));
+                        comments.add(comment);
+                        while(rs.next()) {
+                            comment = new HashMap<>();
+                            comment.put("creation_time", rs.getLong("bug_comment.creation_time"));
+                            comment.put("author", rs.getLong("author"));
+                            comment.put("content", rs.getLong("content"));
+                            comments.add(comment);
+                        }
+                        fields.put("comments", comments);
+                    }
+                    else {
+                        fields.put("no_comments", true);
+                        logger.debug("no comments for bug #{}", bugID);
+                    }
+                }
+            }
+        }
+
+        return new ModelAndView(fields, "bugID.html.twig");
+    }
 }
+

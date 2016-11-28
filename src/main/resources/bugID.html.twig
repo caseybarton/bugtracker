@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bug Tracker</title>
+    <style>
+        td {
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+<h1>Bug #{{ bugID }}</h1>
+<h2>{{ title }}</h2>
+<div>
+    <div>Assgined to:</div>
+    <div>
+    <ul>
+        <!-- currently using email as the user identifier. might want to add a display name attribute down the line -->
+    {% for assignee in assignedUsers %}
+        <li>{{ assignee.email }}</li>
+    {% endfor %}
+    </ul>
+    </div>
+</div>
+
+<p>{{ details }}</p>
+
+
+<h3><strong>Recent Bug Change</strong></h3>
+{% if no_changes is true %}
+<p>No bug changes.</p>
+{% else %}
+<p>
+    Change ID - {{ change_id }} <br />
+    {{ change_creation_time }}
+</p>
+<h5><em>Description:</em></h5>
+<p>{{ change_description }}</p>
+{% endif %}
+
+<h3><strong>Comments:</strong></h3>
+<form action="bug/{{ bugID }}/comment/" method="POST">
+    <textarea name="content" cols="80" rows="4"></textarea>
+    <button type="submit">Submit Comment</button>
+</form>
+{% if no_comments is true %}
+    <p>No comments.</p>
+{% else %}
+<table>
+{% for comment in comments %}
+    <tr>
+        <td>
+        <p>{{ comment.author }} - <em>{{ comment.creation_time }}</em></p>
+        <p>{{ comment.conent }}</p>
+        </td>
+    </tr>
+{% endfor %}
+</table>
+{% endif %}
+</body>
+</html>
