@@ -4,6 +4,7 @@ CREATE TABLE User_Account (
 	username TEXT,
 	first_name TEXT,
 	last_name TEXT,
+	display_name TEXT,
 	email VARCHAR(255)
 );
 
@@ -13,7 +14,7 @@ CREATE TABLE Bug (
 	close_time TIMESTAMP,
 	status VARCHAR(255),
 	title TEXT,
-	creation_time TIMESTAMP,
+	creation_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	summary TEXT
 );
 
@@ -37,9 +38,10 @@ CREATE TABLE User_Assigned_Bug (
 
 CREATE TABLE Bug_Change (
 	bug_change_id bigserial PRIMARY KEY NOT NULL,
-	creation_time TIMESTAMP,
+	creation_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	description VARCHAR(255),
 	bug_id bigint NOT NULL,
+	user_id bigint NOT NULL,
 	bug_details TEXT,
 	bug_close_time TIMESTAMP,
 	bug_status VARCHAR(255),
@@ -51,7 +53,7 @@ CREATE TABLE Bug_Change (
 CREATE TABLE Bug_Comment (
 	bug_comment_id bigserial PRIMARY KEY NOT NULL,
 	content TEXT,
-	creation_time TIMESTAMP,
+	creation_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	bug_id bigint NOT NULL,
 	user_id bigint NOT NULL
 );
@@ -80,6 +82,7 @@ ALTER TABLE Subscription ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE User_Assigned_Bug ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Change ADD FOREIGN KEY(bug_id) REFERENCES Bug;
+ALTER TABLE Bug_Change ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(bug_id) REFERENCES Bug;
 ALTER TABLE Bug_Comment ADD FOREIGN KEY(user_id) REFERENCES User_Account;
 ALTER TABLE Bug_Has_Tag ADD FOREIGN KEY(bug_id) REFERENCES Bug;
