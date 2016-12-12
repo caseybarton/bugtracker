@@ -13,7 +13,7 @@
 <h1>Bug #{{ bugID }}</h1>
 <h2>{{ title }}</h2>
 <div>
-    <div>Assgined to:</div>
+    <h3><strong>Assigned to:</strong></h3>
     <div>
     <ul>
     {% for assignee in assignedUsers %}
@@ -23,11 +23,12 @@
     </div>
 </div>
 
+<h3><strong>Details</strong></h3>
 <p>{{ details }}</p>
 
 
 <h3><strong>Recent Bug Change</strong></h3>
-{% if no_changes is true %}
+{% if no_changes == true %}
 <p>No bug changes.</p>
 {% else %}
 <p>
@@ -41,7 +42,7 @@
 <p>
 {% for tag in tags %}
    {{tag.title }}
-{$ endfor %}
+{% endfor %}
 </p>
 {% endif %}
 
@@ -50,7 +51,7 @@
     <textarea name="content" cols="80" rows="4"></textarea>
     <button type="submit">Submit Comment</button>
 </form>
-{% if no_comments is true %}
+{% if no_comments == true %}
     <p>No comments.</p>
 {% else %}
 <table>
