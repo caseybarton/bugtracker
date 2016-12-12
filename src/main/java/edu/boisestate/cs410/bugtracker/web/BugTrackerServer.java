@@ -297,7 +297,7 @@ public class BugTrackerServer {
 
     String submitBug(Request request, Response response) throws SQLException {
         String token = request.session().attribute("csrf_token");
-        String submittedToken = request.params("csrf_token");
+        String submittedToken = request.queryParams("csrf_token");
         if (token == null || !token.equals(submittedToken)) {
             http.halt(400, "invalid CSRF token");
         }
