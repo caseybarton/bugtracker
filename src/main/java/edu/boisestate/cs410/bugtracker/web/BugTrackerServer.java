@@ -495,9 +495,8 @@ public class BugTrackerServer {
             try (PreparedStatement stmt = cxn.prepareStatement(assigneeQuery)) {
                 stmt.setLong(1, bugID);
                 try (ResultSet rs = stmt.executeQuery()) {
+                    List<Map<String, Object>> assignees = new ArrayList<>();
                     if (rs.next()) {
-                        List<Map<String, Object>> assignees = new ArrayList<>();
-
                         Map<String, Object> assignee = new HashMap<>();
                         assignee.put("user", rs.getString("username"));
                         assignees.add(assignee);
@@ -506,12 +505,13 @@ public class BugTrackerServer {
                             assignee.put("user", rs.getString("username"));
                             assignees.add(assignee);
                         }
-                        fields.put("assignedUsers", assignees);
                     }
                     else {
-                        logger.debug("failed to get bug {}. does not exist", bugID);
-                        http.halt(400, "Bug #"+bugID+" does not exist");
+                        Map<String, Object> assignee = new HashMap<>();
+                        assignee.put("user", "None");
+                        assignees.add(assignee);
                     }
+                    fields.put("assignedUsers", assignees);
                 }
             }
 
