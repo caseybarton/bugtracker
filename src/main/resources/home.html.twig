@@ -3,6 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>Bug Tracker</title>
+    <style>
+        td {
+            border-bottom: 1px solid #ddd;
+        }
+        .open {
+            color: green;
+        }
+        .closed {
+            color: red;
+        }
+    </style>
 </head>
 <body>
 <h1>Bug Tracker</h1>
@@ -10,5 +21,57 @@
 <p>Name: {{ user.getFirstName }} {{ user.getLastName }}</p>
 <p>Email: {{ user.getEmail }}</p>
 <p><a href="/logout">[Logout]</a> <a href="/editUser/">[Edit Account Info]</a></p>
+
+<h3>Assigned Bugs:</h3>
+<div>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Created On</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for bug in bugs %}
+        <tr>
+            <td>
+                <a href="/bug/{{ bug.getId }}">{{ bug.getId }}</a>
+            </td>
+            <td>
+                {{ bug.getTitle }}
+            </td>
+            <td>
+                {{ bug.getCreationTimeString }}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h3>Subscription Feed:</h3>
+
+<table>
+    <tbody>
+    {% for bugChange in bugChanges %}
+    <tr>
+        <td>
+            <p><a href="/bug/{{ bug.id}}/">{{ bugChange.getBugTitle }} - Change ID: {{ bugChange.getId }}</a></p>
+            <p>
+                {% if bugChange.getBugStatus != "open" %}
+                Created: {{ bugChange.getCreationTimeString }} <br />
+                Status: <span class="closed">{{ bugChange.getBugStatus}}</span>
+                {% else %}
+                Created: {{ bugChange.getCreationTimeString  }} <br />
+                Status: <span class="open">{{ bugChange.getBugStatus}}</span>
+                {% endif %}
+            </p>
+            <p>{{ bugChange.getDescription }}</p>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
 </body>
 </html>
