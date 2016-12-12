@@ -27,12 +27,12 @@
         <td>
         <p><a href="/bug/{{ bug.id}}/">Bug #{{ bug.id }} - {{ bug.title }}</a></p>
         <p>
-            {% if bug.status == "open" %}
-            Created: {{ bug.creation_time }} <br />
-            Status: <span class="open">{{ bug.status}}</span>
-            {% else %}
+            {% if bug.status != "open" %}
             Created: {{ bug.creation_time }} <br />
             Status: <span class="closed">{{ bug.status}}</span>
+            {% else %}
+            Created: {{ bug.creation_time }} <br />
+            Status: <span class="open">{{ bug.status}}</span>
             {% endif %}
         </p>
         <p>{{ bug.summary }}</p>
