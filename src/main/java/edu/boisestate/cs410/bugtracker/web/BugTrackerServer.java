@@ -1,5 +1,6 @@
 package edu.boisestate.cs410.bugtracker.web;
 
+import com.mitchellbosecke.pebble.loader.ClasspathLoader;
 import org.apache.commons.dbcp2.PoolingDataSource;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
@@ -25,7 +26,7 @@ public class BugTrackerServer {
     public BugTrackerServer(PoolingDataSource<? extends Connection> pds, Service svc) {
         pool = pds;
         http = svc;
-        engine = new PebbleTemplateEngine();
+        engine = new PebbleTemplateEngine(new ClasspathLoader());
 
         http.get("/", this::rootPage, engine); //user homepage with assigned bugs, most recent subbed-bug changes, and links to edit account info and submit new bug
         http.get("/logout", this::logout);
