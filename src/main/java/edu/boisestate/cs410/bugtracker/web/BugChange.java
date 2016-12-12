@@ -38,7 +38,7 @@ public class BugChange {
         String userQuery = "SELECT bug_change.* FROM bug_change \n" +
                 "  JOIN bug USING (bug_id) \n" +
                 "  JOIN subscription USING (bug_id)\n" +
-                "WHERE user_id = ?\n" +
+                "WHERE subscription.user_id = ?\n" +
                 "ORDER BY bug_change.creation_time DESC\n" +
                 "LIMIT 10;";
 
