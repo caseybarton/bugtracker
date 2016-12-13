@@ -667,18 +667,22 @@ public class BugTrackerServer {
             }
 
             //Being assigned to a bug automatically subscribes the user to the bug. However a user can subscribe to a bug but not be assigned to it
-            String subscribeToBugQuery = "INSERT INTO subscription (user_id, bug_id) VALUES (?, ?) ON CONFLICT DO NOTHING;";
-            try (PreparedStatement stmt = cxn.prepareStatement(subscribeToBugQuery)) {
+            String checkForSubQuery = "SELECT * FROM subscription WHERE user_id = ? AND bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(checkForSubQuery)) {
                 stmt.setLong(1, userId);
                 stmt.setLong(2, bugId);
 
-                stmt.execute();
+                ResultSet rs = stmt.executeQuery();
+                //User is not subscribed
+                if(!rs.next()) {
+                    subscribeToBugPage(request, response);
+                }
             }
         }
 
         //Redirect back to bugIdPage
         response.redirect("/bug/"+bugId, 303);
-        return null;
+        return bugIdPage(request, response);
     }
 
     ModelAndView unassignBugPage(Request request, Response response) throws SQLException {
@@ -688,7 +692,7 @@ public class BugTrackerServer {
         fields.put("bugId", bugId);
         Long userId = request.session().attribute("userId");
 
-        //Assign user to the bug
+        //Unassign user from bug
         try (Connection cxn = pool.getConnection()) {
             String unassignBugQuery = "DELETE FROM user_assigned_bug WHERE user_id = ? AND bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(unassignBugQuery)) {
@@ -701,7 +705,7 @@ public class BugTrackerServer {
 
         //Redirect back to bugIdPage
         response.redirect("/bug/"+bugId, 303);
-        return null;
+        return bugIdPage(request, response);
     }
 
 
@@ -712,7 +716,7 @@ public class BugTrackerServer {
         fields.put("bugId", bugId);
         Long userId = request.session().attribute("userId");
 
-        //Assign user to the bug
+        //Subscribe user to bug
         try (Connection cxn = pool.getConnection()) {
             String assignBugQuery = "INSERT INTO subscription (bug_id, user_id) VALUES (?, ?);";
             try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
@@ -725,7 +729,7 @@ public class BugTrackerServer {
 
         //Redirect back to bugIdPage
         response.redirect("/bug/"+bugId, 303);
-        return null;
+        return bugIdPage(request, response);
     }
 
     ModelAndView unsubscribeToBugPage(Request request, Response response) throws SQLException {
@@ -735,7 +739,7 @@ public class BugTrackerServer {
         fields.put("bugId", bugId);
         Long userId = request.session().attribute("userId");
 
-        //Assign user to the bug
+        //Unsubscribe user from bug
         try (Connection cxn = pool.getConnection()) {
             String assignBugQuery = "DELETE FROM subscription WHERE user_id = ? AND bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
@@ -748,7 +752,7 @@ public class BugTrackerServer {
 
         //Redirect back to bugIdPage
         response.redirect("/bug/"+bugId, 303);
-        return null;
+        return bugIdPage(request, response);
     }
 }
 

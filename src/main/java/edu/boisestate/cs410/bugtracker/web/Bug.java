@@ -43,7 +43,7 @@ public class Bug {
             stmt.setLong(1, userId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    bugs.add(new Bug(userId, rs.getString("title"), rs.getString("summary"), rs.getString("details"), rs.getString("status"), rs.getTimestamp("close_time"), rs.getTimestamp("creation_time")));
+                    bugs.add(new Bug(rs.getLong("bug_id"), rs.getString("title"), rs.getString("summary"), rs.getString("details"), rs.getString("status"), rs.getTimestamp("close_time"), rs.getTimestamp("creation_time")));
                 }
             }
         }
