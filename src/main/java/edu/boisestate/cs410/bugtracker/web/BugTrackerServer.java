@@ -525,11 +525,16 @@ public class BugTrackerServer {
         //display bug info, tags, recent changes, comments, and field to add a comment
         try (Connection cxn = pool.getConnection()) {
             //Get bug info
-            String bugQuery = "SELECT * FROM bug WHERE bug_id = ?;";
+            String bugQuery = "SELECT * " +
+                    "FROM bug " +
+                    "JOIN bug_submission USING (bug_id) " +
+                    "JOIN user_account USING (user_id)" +
+                    "WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
                 stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
+                        fields.put("author", rs.getString("username"));
                         fields.put("id", rs.getLong("bug_id"));
                         fields.put("details", rs.getString("details"));
                         fields.put("title", rs.getString("title"));
