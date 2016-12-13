@@ -46,6 +46,8 @@ public class BugTrackerServer {
         http.get("/bug/:bugId/unassign/", this::unassignBugPage, engine);
         http.get("/bug/:bugId/subscribe", this::redirectToFolder);
         http.get("/bug/:bugId/subscribe/", this::subscribeToBugPage, engine);
+        http.get("/bug/:bugId/unsubscribe", this::redirectToFolder);
+        http.get("/bug/:bugId/unsubscribe/", this::unsubscribeToBugPage, engine);
         http.get("/bug", this::redirectToFolder);
         http.get("/bug/", this::bugsPage, engine); //list all bugs
 //        http.get("/bug/:bugid/changelog", this::redirectToFolder);
@@ -535,6 +537,18 @@ public class BugTrackerServer {
                 }
             }
 
+            //Check if user is subscribed to this bug
+            String subscriptionQuery = "SELECT * FROM subscription WHERE user_id = ? AND bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(subscriptionQuery)) {
+                stmt.setLong(1, userId);
+                stmt.setLong(2, bugId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                   if (rs.next()) {
+                       fields.put("userAlreadySubscribed", true);
+                   }
+                }
+            }
+
             //Get users assigned to this bug
             String assigneeQuery = "SELECT user_id, username\n" +
                     "FROM bug\n" +
@@ -691,7 +705,30 @@ public class BugTrackerServer {
 
         //Assign user to the bug
         try (Connection cxn = pool.getConnection()) {
-            String assignBugQuery = "INSERT INTO user_assigned_bug (user_id, bug_id) VALUES (?, ?);";
+            String assignBugQuery = "INSERT INTO subscription (bug_id, user_id) VALUES (?, ?);";
+            try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
+                stmt.setLong(1, bugId);
+                stmt.setLong(2, userId);
+
+                stmt.execute();
+            }
+        }
+
+        //Redirect back to bugIdPage
+        response.redirect("/bug/"+bugId, 303);
+        return null;
+    }
+
+    ModelAndView unsubscribeToBugPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        Long bugId = Long.parseLong(request.params("bugId"));
+        fields.put("bugId", bugId);
+        Long userId = request.session().attribute("userId");
+
+        //Assign user to the bug
+        try (Connection cxn = pool.getConnection()) {
+            String assignBugQuery = "DELETE FROM subscription WHERE user_id = ? AND bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
                 stmt.setLong(1, userId);
                 stmt.setLong(2, bugId);

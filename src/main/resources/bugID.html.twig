@@ -11,6 +11,11 @@
 </head>
 <body>
 <h1>Bug #{{ bugId }}</h1>
+{% if userAlreadySubscribed != true %}
+    <a href="subscribe/"><button>Subscribe</button></a>
+{% else %}
+    <a href="unsubscribe/"><button>Unsubscribe</button></a>
+{% endif %}
 <h2>{{ title }}</h2>
 <div>
     <h3><strong>Assigned to:</strong></h3>
