@@ -319,20 +319,22 @@ public class BugTrackerServer {
         String details = request.queryParams("details");
         String summary = request.queryParams("summary");
 
-        String addBug = "INSERT INTO Bug (title, details, status, creation_time, summary) " +
-                "VALUES (?, ?, ?, ?, ?) " +
+        String addBug = "INSERT INTO Bug (title, details, status, summary) " +
+                "VALUES (?, ?, ?, ?) " +
                 "RETURNING bug_id"; // PostgreSQL extension
 
         String addBugSubmission = "INSERT INTO Bug_Submission (bug_id, user_id) " +
                 "VALUES (?, ?)";
 
+        String addInitialBugChange = "INSERT INTO Bug_Change (description, bug_id, bug_details, bug_status, bug_title, bug_summary) " +
+                "VALUES (?,?,?,?,?,?);";
+
         try (Connection cxn = pool.getConnection();
             PreparedStatement stmt = cxn.prepareStatement(addBug)) {
             stmt.setString(1, title);
             stmt.setString(2, details);
-            stmt.setString(3, "new"); // All bugs start with status "new"
-            stmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
-            stmt.setString(5, summary);
+            stmt.setString(3, "open"); // All bugs start with status "open"
+            stmt.setString(4, summary);
             stmt.execute();
 
             ResultSet rs = stmt.getResultSet();
@@ -343,6 +345,15 @@ public class BugTrackerServer {
             stmt2.setLong(1, bugId);
             stmt2.setLong(2, request.session().attribute("userId"));
             stmt2.execute();
+
+            PreparedStatement stmt3 = cxn.prepareStatement(addInitialBugChange);
+            stmt3.setString(1, "Bug Created.");
+            stmt3.setLong(2, bugId);
+            stmt3.setString(3, details);
+            stmt3.setString(4, "open");
+            stmt3.setString(5, title);
+            stmt3.setString(6, summary);
+            stmt3.execute();
 
             logger.info("added bug with title {}, id {}", title, bugId);
         }
