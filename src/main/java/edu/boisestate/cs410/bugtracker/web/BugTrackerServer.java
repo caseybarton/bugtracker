@@ -34,8 +34,8 @@ public class BugTrackerServer {
         http.post("/createUser", this::createUser);
         http.post("/editUser", this::editUser);
         http.post("/submitBug", this::submitBug);
-//        http.get("/bug/:bugID/comment", this::redirectToFolder);
-//        http.get("/bug/:bugID/comment", this::addComment, engine); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
+        http.post("/bug/:bugID/comment", this::addComment);
+//      http.get("/bug/:bugID/comment/", this::addCommentPage); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
         http.get("/bug/:bugID", this::redirectToFolder);
         http.get("/bug/:bugID/", this::bugIDPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
         http.get("/bug", this::redirectToFolder);
@@ -339,6 +339,45 @@ public class BugTrackerServer {
         return "Bug submitted!";
     }
 
+    String addComment(Request request, Response response) throws SQLException {
+        String token = request.session().attribute("csrf_token");
+        String submittedToken = request.queryParams("csrf_token");
+        if (token == null || !token.equals(submittedToken)) {
+            http.halt(400, "invalid CSRF token");
+        }
+
+        //get field info
+        String content = request.queryParams("content");
+        long bugId;
+        try {
+                bugId = Long.parseLong(request.queryParams("bug_id"));
+        } catch (NumberFormatException e) {
+                response.redirect("/", 303);
+                return "Invalid bug";
+        }
+
+        String addComment = "INSERT INTO Bug_Comment (content, bug_id, user_id) " +
+                "VALUES (?, ?, ?) " +
+                "RETURNING bug_comment_id"; // PostgreSQL extension
+
+        try (Connection cxn = pool.getConnection();
+            PreparedStatement stmt = cxn.prepareStatement(addComment)) {
+            stmt.setString(1, content);
+            stmt.setLong(2, bugId);
+            stmt.setLong(3, request.session().attribute("userId"));
+            stmt.execute();
+
+            ResultSet rs = stmt.getResultSet();
+            rs.next();
+            long commentId = rs.getLong(1);
+
+            logger.info("added comment with id {}", commentId);
+        }
+
+        response.redirect("/bug/"+bugId, 303);
+        return "Comment submitted!";
+    }
+
     ModelAndView loginPage(Request request, Response response) throws SQLException {
         Map<String,Object> fields = new HashMap<>();
         return new ModelAndView(fields, "login.html.twig");
@@ -552,15 +591,15 @@ public class BugTrackerServer {
                         List<Map<String, Object>> comments = new ArrayList<>();
 
                         Map<String, Object> comment = new HashMap<>();
-                        comment.put("creation_time", rs.getLong("bug_comment.creation_time"));
-                        comment.put("author", rs.getLong("author"));
-                        comment.put("content", rs.getLong("content"));
+                        comment.put("creation_time", rs.getString("creation_time"));
+                        comment.put("author", rs.getString("author"));
+                        comment.put("content", rs.getString("content"));
                         comments.add(comment);
                         while(rs.next()) {
                             comment = new HashMap<>();
-                            comment.put("creation_time", rs.getLong("bug_comment.creation_time"));
-                            comment.put("author", rs.getLong("author"));
-                            comment.put("content", rs.getLong("content"));
+                            comment.put("creation_time", rs.getString("creation_time"));
+                            comment.put("author", rs.getString("author"));
+                            comment.put("content", rs.getString("content"));
                             comments.add(comment);
                         }
                         fields.put("comments", comments);
@@ -572,6 +611,10 @@ public class BugTrackerServer {
                 }
             }
         }
+
+        // token for comment submission
+        String token = request.session().attribute("csrf_token");
+        fields.put("csrf_token", token);
 
         return new ModelAndView(fields, "bugID.html.twig");
     }
