@@ -656,10 +656,19 @@ public class BugTrackerServer {
         fields.put("bugId", bugId);
         Long userId = request.session().attribute("userId");
 
-        //Assign user to the bug
         try (Connection cxn = pool.getConnection()) {
+            //Assign user to the bug
             String assignBugQuery = "INSERT INTO user_assigned_bug (user_id, bug_id) VALUES (?, ?);";
             try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
+                stmt.setLong(1, userId);
+                stmt.setLong(2, bugId);
+
+                stmt.execute();
+            }
+
+            //Being assigned to a bug automatically subscribes the user to the bug. However a user can subscribe to a bug but not be assigned to it
+            String subscribeToBugQuery = "INSERT INTO subscription (user_id, bug_id) VALUES (?, ?) ON CONFLICT DO NOTHING;";
+            try (PreparedStatement stmt = cxn.prepareStatement(subscribeToBugQuery)) {
                 stmt.setLong(1, userId);
                 stmt.setLong(2, bugId);
 
