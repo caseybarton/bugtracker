@@ -59,7 +59,7 @@
 <h3><strong>Comments:</strong></h3>
 <form action="comment" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="bug_id" value="{{ bugID }}">
+    <input type="hidden" name="bugId" value="{{ bugId }}">
     <textarea name="content" cols="80" rows="4"></textarea>
     <button type="submit">Submit Comment</button>
 </form>

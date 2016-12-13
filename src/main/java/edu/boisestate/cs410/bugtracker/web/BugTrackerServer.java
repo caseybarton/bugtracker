@@ -12,6 +12,8 @@ import spark.template.pebble.PebbleTemplateEngine;
 import java.security.SecureRandom;
 import java.sql.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Server for the bug tracker database.
@@ -360,7 +362,7 @@ public class BugTrackerServer {
         String content = request.queryParams("content");
         long bugId;
         try {
-                bugId = Long.parseLong(request.queryParams("bug_id"));
+                bugId = Long.parseLong(request.queryParams("bugId"));
         } catch (NumberFormatException e) {
                 response.redirect("/", 303);
                 return "Invalid bug";
@@ -381,13 +383,36 @@ public class BugTrackerServer {
             rs.next();
             long commentId = rs.getLong(1);
 
+            // search the comment for possible mentions
+            Matcher m = Pattern.compile("@[a-zA-Z0-9]+").matcher(content);
+            while (m.find()) {
+                  // Get rid of the @ at the start, leaving us with only the username
+                  String uname = content.substring(m.start()+1,m.end());
+
+                  PreparedStatement mentionStmt = cxn.prepareStatement(
+                        "SELECT user_id FROM user_account WHERE username = ?");
+                  mentionStmt.setString(1, uname);
+                  rs = mentionStmt.executeQuery();
+                  if (rs.next()) {
+                        PreparedStatement mentionAddStmt = cxn.prepareStatement(
+                        "INSERT INTO comment_mentions_user (bug_comment_id, user_id) " +
+                        "VALUES (?, ?) " +
+                        "RETURNING comment_mentions_user_id"); // PostgreSQL extension
+                        mentionAddStmt.setLong(1,commentId);
+                        mentionAddStmt.setLong(2,rs.getLong("user_id"));
+                        mentionAddStmt.execute();
+                        rs = mentionAddStmt.getResultSet();
+                        rs.next();
+                        logger.info("added mention with id {}", rs.getLong(1));
+                  }
+            }
+
             logger.info("added comment with id {}", commentId);
         }
 
         response.redirect("/bug/"+bugId, 303);
         return "Comment submitted!";
     }
-
     ModelAndView loginPage(Request request, Response response) throws SQLException {
         Map<String,Object> fields = new HashMap<>();
         return new ModelAndView(fields, "login.html.twig");
