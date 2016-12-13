@@ -21,14 +21,18 @@
     {% endfor %}
     </ul>
     </div>
-    <a href="assign/"><button>Assign Me</button></a>
+    {% if userAlreadyAssigned != true %}
+        <a href="assign/"><button>Assign Me</button></a>
+    {% else %}
+        <a href="unassign/"><button>Unassign Me</button></a>
+    {% endif %}
 </div>
 
 <h3><strong>Details</strong></h3>
 <p>{{ details }}</p>
 
 
-<h3><strong>Recent Bug Change</strong></h3>
+<h3><strong>Recent Bug Changes</strong></h3>
 {% if no_changes == true %}
 <p>No bug changes.</p>
 {% else %}

@@ -42,7 +42,10 @@ public class BugTrackerServer {
 //        http.get("/bug/:bugId/comment", this::addComment, engine); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
         http.get("/bug/:bugId/assign", this::redirectToFolder);
         http.get("/bug/:bugId/assign/", this::assignBugPage, engine);
-
+        http.get("/bug/:bugId/unassign", this::redirectToFolder);
+        http.get("/bug/:bugId/unassign/", this::unassignBugPage, engine);
+        http.get("/bug/:bugId/subscribe", this::redirectToFolder);
+        http.get("/bug/:bugId/subscribe/", this::subscribeToBugPage, engine);
         http.get("/bug", this::redirectToFolder);
         http.get("/bug/", this::bugsPage, engine); //list all bugs
 //        http.get("/bug/:bugid/changelog", this::redirectToFolder);
@@ -479,6 +482,7 @@ public class BugTrackerServer {
         Map<String, java.lang.Object> fields = new HashMap<>();
         Long bugId = Long.parseLong(request.params("bugId"));
         fields.put("bugId", bugId);
+        Long userId = request.session().attribute("userId");
 
         //display bug info, tags, recent changes, comments, and field to add a comment
         try (Connection cxn = pool.getConnection()) {
@@ -542,10 +546,16 @@ public class BugTrackerServer {
                 try (ResultSet rs = stmt.executeQuery()) {
                     List<Map<String, Object>> assignees = new ArrayList<>();
                     if (rs.next()) {
+                        if(userId == rs.getLong("user_id")) {
+                            fields.put("userAlreadyAssigned", true);
+                        }
                         Map<String, Object> assignee = new HashMap<>();
                         assignee.put("user", rs.getString("username"));
                         assignees.add(assignee);
                         while(rs.next()) {
+                            if(userId == rs.getLong("user_id")) {
+                                fields.put("userAlreadyAssigned", true);
+                            }
                             assignee = new HashMap<>();
                             assignee.put("user", rs.getString("username"));
                             assignees.add(assignee);
@@ -626,6 +636,53 @@ public class BugTrackerServer {
 
 
     ModelAndView assignBugPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        Long bugId = Long.parseLong(request.params("bugId"));
+        fields.put("bugId", bugId);
+        Long userId = request.session().attribute("userId");
+
+        //Assign user to the bug
+        try (Connection cxn = pool.getConnection()) {
+            String assignBugQuery = "INSERT INTO user_assigned_bug (user_id, bug_id) VALUES (?, ?);";
+            try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
+                stmt.setLong(1, userId);
+                stmt.setLong(2, bugId);
+
+                stmt.execute();
+            }
+        }
+
+        //Redirect back to bugIdPage
+        response.redirect("/bug/"+bugId, 303);
+        return null;
+    }
+
+    ModelAndView unassignBugPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        Long bugId = Long.parseLong(request.params("bugId"));
+        fields.put("bugId", bugId);
+        Long userId = request.session().attribute("userId");
+
+        //Assign user to the bug
+        try (Connection cxn = pool.getConnection()) {
+            String unassignBugQuery = "DELETE FROM user_assigned_bug WHERE user_id = ? AND bug_id = ?;";
+            try (PreparedStatement stmt = cxn.prepareStatement(unassignBugQuery)) {
+                stmt.setLong(1, userId);
+                stmt.setLong(2, bugId);
+
+                stmt.execute();
+            }
+        }
+
+        //Redirect back to bugIdPage
+        response.redirect("/bug/"+bugId, 303);
+        return null;
+    }
+
+
+    ModelAndView subscribeToBugPage(Request request, Response response) throws SQLException {
         checkSession(request, response);
         Map<String, java.lang.Object> fields = new HashMap<>();
         Long bugId = Long.parseLong(request.params("bugId"));
