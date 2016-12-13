@@ -37,7 +37,12 @@ public class BugTrackerServer {
         http.post("/bug/:bugID/comment", this::addComment);
 //      http.get("/bug/:bugID/comment/", this::addCommentPage); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
         http.get("/bug/:bugID", this::redirectToFolder);
-        http.get("/bug/:bugID/", this::bugIDPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
+        http.get("/bug/:bugID/", this::bugIdPage, engine); //display bug info, tags, recent changes, comments, and field to add a comment
+//        http.get("/bug/:bugId/comment", this::redirectToFolder);
+//        http.get("/bug/:bugId/comment", this::addComment, engine); //simply a handler for submitted comments. will insert the comment and redirect back to the bugid page
+        http.get("/bug/:bugId/assign", this::redirectToFolder);
+        http.get("/bug/:bugId/assign/", this::assignBugPage, engine);
+
         http.get("/bug", this::redirectToFolder);
         http.get("/bug/", this::bugsPage, engine); //list all bugs
 //        http.get("/bug/:bugid/changelog", this::redirectToFolder);
@@ -469,18 +474,18 @@ public class BugTrackerServer {
         return new ModelAndView(fields, "bug.html.twig");
     }
 
-    ModelAndView bugIDPage(Request request, Response response) throws SQLException {
+    ModelAndView bugIdPage(Request request, Response response) throws SQLException {
         checkSession(request, response);
         Map<String, java.lang.Object> fields = new HashMap<>();
-        Long bugID = Long.parseLong(request.params("bugID"));
-        fields.put("bugID", bugID);
+        Long bugId = Long.parseLong(request.params("bugId"));
+        fields.put("bugId", bugId);
 
         //display bug info, tags, recent changes, comments, and field to add a comment
         try (Connection cxn = pool.getConnection()) {
             //Get bug info
             String bugQuery = "SELECT * FROM bug WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(bugQuery)) {
-                stmt.setLong(1, bugID);
+                stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         fields.put("id", rs.getLong("bug_id"));
@@ -492,8 +497,8 @@ public class BugTrackerServer {
                         fields.put("status", rs.getString("status"));
                     }
                     else {
-                        logger.debug("failed to get bug {}. does not exist", bugID);
-                        http.halt(400, "Bug #"+bugID+" does not exist");
+                        logger.debug("failed to get bug {}. does not exist", bugId);
+                        http.halt(400, "Bug #"+bugId+" does not exist");
                     }
                 }
             }
@@ -505,7 +510,7 @@ public class BugTrackerServer {
                     "JOIN bug USING (bug_id)\n" +
                     "WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(tagsQuery)) {
-                stmt.setLong(1, bugID);
+                stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         List<Map<String, Object>> tags = new ArrayList<>();
@@ -521,7 +526,7 @@ public class BugTrackerServer {
                         fields.put("tags", tags);
                     }
                     else {
-                        logger.debug("no tags were found for bug #{}", bugID);
+                        logger.debug("no tags were found for bug #{}", bugId);
                     }
                 }
             }
@@ -533,7 +538,7 @@ public class BugTrackerServer {
                     "JOIN user_account USING (user_id)\n" +
                     "WHERE bug_id = ?;";
             try (PreparedStatement stmt = cxn.prepareStatement(assigneeQuery)) {
-                stmt.setLong(1, bugID);
+                stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     List<Map<String, Object>> assignees = new ArrayList<>();
                     if (rs.next()) {
@@ -563,16 +568,16 @@ public class BugTrackerServer {
                     "ORDER BY bug_change.creation_time DESC\n" +
                     "LIMIT 1;";
             try (PreparedStatement stmt = cxn.prepareStatement(changeQuery)) {
-                stmt.setLong(1, bugID);
+                stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         fields.put("change_id", rs.getLong("bug_change_id"));
-                        fields.put("change_description", rs.getLong("description"));
-                        fields.put("change_creation_time", rs.getTimestamp("bug_change.creation_time"));
+                        fields.put("change_description", rs.getString("description"));
+                        fields.put("change_creation_time", rs.getTimestamp("creation_time"));
                     }
                     else {
                         fields.put("no_changes", true);
-                        logger.debug("no recent changes for bug #{}", bugID);
+                        logger.debug("no recent changes for bug #{}", bugId);
                     }
                 }
             }
@@ -585,7 +590,7 @@ public class BugTrackerServer {
                     "WHERE bug_id = ?\n" +
                     "ORDER BY bug_comment.creation_time DESC;";
             try (PreparedStatement stmt = cxn.prepareStatement(commentsQuery)) {
-                stmt.setLong(1, bugID);
+                stmt.setLong(1, bugId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
                         List<Map<String, Object>> comments = new ArrayList<>();
@@ -606,7 +611,7 @@ public class BugTrackerServer {
                     }
                     else {
                         fields.put("no_comments", true);
-                        logger.debug("no comments for bug #{}", bugID);
+                        logger.debug("no comments for bug #{}", bugId);
                     }
                 }
             }
@@ -617,6 +622,30 @@ public class BugTrackerServer {
         fields.put("csrf_token", token);
 
         return new ModelAndView(fields, "bugID.html.twig");
+    }
+
+
+    ModelAndView assignBugPage(Request request, Response response) throws SQLException {
+        checkSession(request, response);
+        Map<String, java.lang.Object> fields = new HashMap<>();
+        Long bugId = Long.parseLong(request.params("bugId"));
+        fields.put("bugId", bugId);
+        Long userId = request.session().attribute("userId");
+
+        //Assign user to the bug
+        try (Connection cxn = pool.getConnection()) {
+            String assignBugQuery = "INSERT INTO user_assigned_bug (user_id, bug_id) VALUES (?, ?);";
+            try (PreparedStatement stmt = cxn.prepareStatement(assignBugQuery)) {
+                stmt.setLong(1, userId);
+                stmt.setLong(2, bugId);
+
+                stmt.execute();
+            }
+        }
+
+        //Redirect back to bugIdPage
+        response.redirect("/bug/"+bugId, 303);
+        return null;
     }
 }
 

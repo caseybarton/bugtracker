@@ -57,7 +57,7 @@
     {% for bugChange in bugChanges %}
     <tr>
         <td>
-            <p><a href="/bug/{{ bug.id}}/">{{ bugChange.getBugTitle }} - Change ID: {{ bugChange.getId }}</a></p>
+            <p><a href="/bug/{{ bugChange.getId }}/">{{ bugChange.getBugTitle }} - Change ID: {{ bugChange.getId }}</a></p>
             <p>
                 {% if bugChange.getBugStatus != "open" %}
                 Created: {{ bugChange.getCreationTimeString }} <br />

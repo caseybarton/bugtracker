@@ -6,7 +6,9 @@
 </head>
 <body>
 <h2>Submit New Bug</h2>
-<form action="/submitBugPage" method="POST">
+<form action="/submitBug" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="user_id" value="{{ user.getId }}">
     <label>Title: <input name="title" type="text" width="50" /></label><br>
     <label>Summary: <textarea name="summary" cols="80" rows="4"></textarea></label><br>
     <label>Details: <textarea name="details" cols="80" rows="16"></textarea></label><br>
